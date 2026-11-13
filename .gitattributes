@@ -1,0 +1,2 @@
+# Symbol tables are consumed by the Linux CSV tools.
+*.csv text eol=lf

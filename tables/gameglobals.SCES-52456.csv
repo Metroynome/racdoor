@@ -1,0 +1,8 @@
+NAME,TYPE,COMMENT,SIZE,CORE
+Level,OBJECT,Save block 0,4,1d545c
+HelpDataMessages,OBJECT,Save block 16: 356 records of 12 bytes,10b0,1a7e18
+HelpDataGadgets,OBJECT,Save block 17: 43 records of 12 bytes,204,1a7c10
+HelpDataMisc,OBJECT,Save block 18: 156 records of 12 bytes,750,1a74c0
+HelpLog,OBJECT,Save block 1010: 400 halfwords,320,1a8ec8
+HelpLogPos,OBJECT,Save block 1011: signed 32-bit index,4,1d5598
+MapMask,OBJECT,Save block 3002: 37 level sections of 2048 bytes,12800,1a9318
