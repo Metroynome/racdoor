@@ -1,5 +1,133 @@
 # UYA NTSC-U and PAL port investigation
 
+## All PAL campaign trigger locations mapped (2026-11-13)
+
+User requested tracing from any level and supplied RAC Levels/rac-defs.json.
+Added [PAL help trigger map](uya-pal-help-triggers.md): all 34 campaign gameplay
+overlays listed by those definitions have one matching history writer, one
+wrapper, and both QuickSelect call sites (0x14fb/record 0x11e and
+0x14fc/record 0x11f). All 208 bytes of every writer match Phoenix exactly.
+Florana writer=0x003f49a0, wrapper=0x003f3208, calls=0x004b7c50/0x004b7c24.
+This is static coverage, not verified trigger eligibility on every level;
+Clank/Vid-Comics may retain unreachable shared code. Main menu and MP excluded.
+
+Removed Phoenix-only writer breakpoint. Shared write watchpoint at
+0x0013d27c..0x0013d280 now catches instruction writes in any campaign overlay;
+use hit PC to resolve the level-specific writer and caller. Current emulator
+is at title; fresh diagnostic save still starts Phoenix. No more Phoenix-only
+restriction for tracing. Autosave disarming is separate and remains unresolved.
+Scan script and JSON evidence are in probe temp root (map-triggers.mjs and
+pal-campaign-trigger-map.json). Production injector remains gated.
+
+## Repeat-run reset after diagnostic autosave (2026-11-13)
+
+User reported the copied test slot had saved at Florana, then traveled through
+Phoenix and back. Live inspection: level 2, original branch 0x1440fffa,
+history 77, original queue words 0/0x97/0x0b, marker zero, branch-write
+watchpoint hits zero. The diagnostic trigger was no longer armed.
+
+Closed only the isolated emulator, backed up its current slot as
+probe-after-autosave-<timestamp>.bin, and restored save-execution-probe.bin to
+uya-pal-save-probe.ps2/BESCES-52456RATCHET/save0.bin. Copy hash verified.
+Restarted PAL with cheats/patches still disabled. Main/login/Desktop saves
+remain untouched. Next: load first slot, stop at initial help write, capture
+and preserve that state before tracing the later duplicate. Planet autosave
+can replace the armed slot; restore the pristine diagnostic file for repeats.
+
+## Current handoff: Florana continuation confirmed (2026-11-13)
+
+User confirmed Florana loaded normally after the save-loaded proof routine
+executed and returned. Initial save entry, branch/data restoration, register
+preservation, and subsequent level load are now verified in PCSX2 with cheats
+and patches disabled. Main/login save and Desktop export remain unchanged.
+Disposable card is uya-pal-save-probe.ps2; no diagnostic progress should be saved.
+
+Next work: trace the second help-history write that changed the branch upper
+half (0x144014fb -> 0x14fb14fb) before probe entry, fix/retest this trigger, then
+implement and test payload survival/reinstallation across the multiplayer
+executable restart. DNAS standalone worker already passed the loader-backed
+online login test; save-based multiplayer DNAS is NOT implemented yet.
+
+## Save-loaded code execution and restoration verified (2026-11-13)
+
+User traveled Phoenix -> Florana. PCSX2 paused at 0x001a9318: actual entry
+into the 152-byte code loaded from the disposable save, with cheats/patches
+OFF and no debugger code/register injection. Level=2, ra=0x0013d35c,
+a0=t0=0x001685e0, a1=0x001f3340, a2=0x60, a3=1, v0=1, v1=0x60,
+sp=0x01fffc70. Code and restoration metadata remained intact.
+
+Ran the probe and stopped at continuation 0x0013d268. Verified:
+- original branch restored to 0x1440fffa; delay slot 0xa0830000 intact;
+- block-39 words restored to 0/0x97/0x0b;
+- history count restored to 77;
+- marker 0x50524f42 written at 0x001a9738;
+- all reported GPR values identical to entry except PC, including full 128-bit
+  values for registers touched by the probe.
+
+Removed continuation breakpoint and resumed for normal Florana loading.
+Snapshots: save-probe-entry.json and save-probe-continuation.json in probe
+root. This proves the initial save execution and return under PCSX2, not
+hardware cache behavior or DNAS/multiplayer persistence.
+
+IMPORTANT robustness defect: at probe entry the branch was 0x14fb14fb,
+although immediately after the first help event it was 0x144014fb. A later
+halfword write also modified the upper half before planet travel. The exact
+writer/timing still needs tracing. This run reached the intended destination,
+but must not be considered a reliable trigger until repeat writes are stopped.
+Do not distribute this diagnostic save as a working release.
+
+## Save-triggered branch overwrite verified (2026-11-13)
+
+User loaded the diagnostic Phoenix save. PCSX2 paused naturally at help
+wrapper 0x00407a60: a0=0x14fb, a1=0x11e, ra=0x004cf728. Probe code and the
+nop/jump/nop trampoline were intact in live memory. History held armed index
+0xfffca1da, flag was zero. Cheats/patches remained disabled.
+
+Removed wrapper breakpoint, stopped at caller return 0x004cf728. The GAME's
+help write changed 0x0013d27c from 0x1440fffa to 0x144014fb, leaving delay-slot
+0xa0830000 intact. History incremented to 0xfffca1db. Trampoline remained
+00000000/0806a4c6/00000000. Proof marker was still zero: branch modification
+is observed, payload execution is not yet observed.
+
+Saved save-probe-help-entry.json and save-probe-help-return.json in the probe
+temp root. Removed caller-return breakpoint and resumed. Only save-code entry
+breakpoint 0x001a9318 remains. Next user action: enter ship and travel from
+Phoenix to Florana without cycling gadgets or opening map UI. Capture entry
+registers, then verify probe restoration and normal copy-loop continuation.
+
+## PAL save-only diagnostic prepared (2026-11-13)
+
+User explicitly chose finishing the racdoor save payload over a separate ELF
+launcher. Added samples/uya-save-probe: 152-byte assembly proof routine, C
+installer using existing save/checksum APIs, Makefile, and test notes. This is
+not a DNAS payload and does not enable the production UYA injector.
+
+Code is stored at MapMask 0x001a9318. Block 39 +0x0c..0x17 carries nop/jump/nop
+for both observed help IDs. Signed history index targets halfword 0x0013d27c.
+Other help records are disabled; native help display settings remain intact.
+The routine restores the copy-loop instruction, original three block-39 words,
+and ordinary history count; writes marker 0x50524f42 at 0x001a9738; flushes
+caches; restores touched registers; resumes 0x0013d268. Backup metadata begins
+0x001a9718. Live queue use and map storage lifetime are still unverified.
+
+Built successfully and reparsed generated save checksums. Independent parsing
+verified all branch destinations, exact code bytes, backup metadata, and 1223
+changed bytes confined to intended fields/checksums. Source input is preserved
+native PAL Phoenix save from the successful login card. Main and Desktop saves
+are untouched. Probe file: temp racdoor-uya-probe-20261113/save-execution-probe.bin.
+Attached disposable card: MemoryCards/uya-pal-save-probe.ps2.
+
+Cheats and patches are OFF. PCSX2 initially exited while breakpoints were added
+while running, before loading the save. Restarted and added breakpoints while
+paused; stable afterward. Persistent observation breakpoints: 0x00407a60 help
+wrapper and 0x001a9318 probe entry. No live code/register injection. Current
+state is title menu, level -1, original branch intact, probe storage zero.
+Waiting for user to load FIRST slot, stop moving, and report load/pause. Avoid
+gadget cycling, map UI, and saving during this diagnostic. Inspect a0 at help
+wrapper before resuming: only 0x14fb/0x14fc is intended. Then verify help store,
+travel-triggered branch, entry, restoration, and normal continuation in stages.
+No save-triggered code execution has been observed yet.
+
 ## PAL online login and save export (2026-11-13)
 
 User reported passing the DNAS stage and successfully logging in using the
