@@ -1,5 +1,23 @@
 # UYA NTSC-U and PAL port investigation
 
+## Official English PAL save baseline (2026-11-14)
+
+User designated the English save as the official file for future use after
+confirming English by saving and reloading in-game. PCSX2 was closed normally
+to flush its buffered folder-card writes before backup.
+
+- Active save: `D:/PS2/PCSX2/memcards/main.ps2/BESCES-52456RATCHET/save0.bin`.
+- Preserved official backup: `D:/PS2/PCSX2/backups/ratchet-clank-3-pal-english-official-20261114/BESCES-52456RATCHET/save0.bin`.
+- SHA-256: `371538e6ff80ed1e2a91d095ea59de0907ded32c9d9011b9bdbf674287702531`.
+- Language: English, value `0x01`, verified in saved settings block 38 at offset `0xb7`.
+- Complete PAL save folder backed up; all nine files matched source SHA-256 hashes.
+  Backup root contains `manifest.json` and restore notes. Keep private save and
+  network data outside Git. Preserve the backup unchanged; use copies for future work.
+
+This supersedes earlier Italian-language save references as the user's preferred
+baseline. The backup is an ordinary saved-game preservation step, not a new
+save-based DNAS implementation.
+
 ## All PAL campaign trigger locations mapped (2026-11-13)
 
 User requested tracing from any level and supplied RAC Levels/rac-defs.json.
